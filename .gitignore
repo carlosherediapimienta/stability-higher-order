@@ -1,0 +1,24 @@
+# Entorno
+venv/
+.venv/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Salida de las simulaciones
+resultados_pu_q/
+resultados_notebook/
+
+# Herramientas
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

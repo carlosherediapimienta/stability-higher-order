@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stability-higher-order"
+version = "0.1.0"
+description = "Simulacion del oscilador de Pais-Uhlenbeck con interaccion cuartica truncada"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+]
+
+[project.scripts]
+pu-q = "pu_q.linea_comandos:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
