@@ -5,8 +5,13 @@ from pathlib import Path
 import numpy as np
 
 from pu_q.clases import (
+    ContribucionColaRM,
     EscritorCSV,
     EvolucionUnitaria,
+    ExportadorContribucionCola,
+    ExportadorDistribucionPq,
+    GraficadorContribucionCola,
+    GraficadorDistribucionFinal,
     GraficadorPorCorte,
     LectorOmega2,
     ResumenCaso,
@@ -33,13 +38,18 @@ class Orquestador:
         self.omega2 = omega2
         self.lam = lam
         self.hbar = hbar
-        self.cuts = [12, 40, 60, 80, 100] if cuts is None else list(cuts)
+        self.cuts = [12, 40, 60, 80, 100, 120, 140] if cuts is None else list(cuts)
         self.tmax = tmax
         self.nt = nt
         self.outdir = Path(outdir)
         self.quick = quick
         self.escritor = EscritorCSV()
+        self.exportador_pq = ExportadorDistribucionPq()
+        self.contribucion = ContribucionColaRM()
+        self.exportador_rm = ExportadorContribucionCola()
         self.graficador = GraficadorPorCorte()
+        self.graficador_distribucion = GraficadorDistribucionFinal()
+        self.graficador_rm = GraficadorContribucionCola()
         self.lector = LectorOmega2()
         self.resumen = ResumenCaso()
         self.verificador = VerificadorMatriz4x4()
@@ -64,27 +74,55 @@ class Orquestador:
                 f"lambda={self.lam:g}, hbar={self.hbar:g}"
             )
             resultados = {}
+            curvas_rm = {}
             for K in sorted(set(self.cuts)):
                 print(f"  Calculando K={K}, dimension={(K + 1) ** 2}...", flush=True)
                 datos = EvolucionUnitaria(
                     K, self.omega1, omega2, self.lam, self.hbar
                 ).evolucionar(tiempos)
                 resultados[K] = datos
-                destino = self.outdir / f"pu_omega2_{etiqueta}_K_{K}.csv"
+                base = f"pu_omega2_{etiqueta}_K_{K}"
+                destino = self.outdir / f"{base}.csv"
                 self.escritor.escribir(destino, datos)
+                self.exportador_pq.exportar(
+                    self.outdir / f"{base}_pq_todos_los_tiempos.csv",
+                    self.outdir / f"{base}_pq_tfinal.csv",
+                    datos,
+                )
+                curvas_rm[K] = self.contribucion.calcular(datos["p_q"])
+                self.exportador_rm.exportar(
+                    self.outdir / f"{base}_rm.csv", tiempos, curvas_rm[K]
+                )
                 print("  Archivo:", destino)
 
             self.resumen.imprimir(
                 etiqueta, resultados, tiempos_referencia=[0, 0.1, 1, 2, 4, 6]
             )
-            self._graficar_caso(etiqueta, omega2, resultados)
+            self._graficar_caso(etiqueta, omega2, resultados, tiempos, curvas_rm)
 
         print("\nArchivos guardados en:", self.outdir.resolve())
         print("RECORDATORIO: los resultados convergentes en tiempos finitos no")
         print("demuestran por si solos estabilidad/inestabilidad para todo t.")
 
-    def _graficar_caso(self, etiqueta, omega2, resultados):
+    def _graficar_caso(self, etiqueta, omega2, resultados, tiempos, curvas_rm):
         sufijo = f"omega2_{etiqueta}"
+        self.graficador_rm.graficar_en_tiempo(
+            tiempos,
+            curvas_rm,
+            self.outdir / f"rm_tiempo_{sufijo}.png",
+            rf"Contribucion de la cola ($\omega_2={omega2:.5g}$)",
+        )
+        self.graficador_rm.graficar_frente_a_umbral(
+            curvas_rm,
+            self.outdir / f"rm_umbral_{sufijo}.png",
+            rf"$R_M$ en $t={self.tmax:g}$ ($\omega_2={omega2:.5g}$)",
+        )
+        self.graficador_distribucion.graficar(
+            resultados,
+            self.outdir / f"distribucion_{sufijo}.png",
+            self.outdir / f"aporte_N_{sufijo}.png",
+            rf"Distribucion en t={self.tmax:g} ($\omega_2={omega2:.5g}$)",
+        )
         self.graficador.graficar(
             resultados,
             self.outdir / f"numero_{sufijo}.png",
